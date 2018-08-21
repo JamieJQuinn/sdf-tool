@@ -1,4 +1,4 @@
-SRCFILES=main.f90 sdf_io.f90
+SRCFILES=main.f90 sdf_io.f90 mpi_routines.f90
 OBJFILES := $(SRCFILES:.f90=.o)
 
 SRCDIR=src
@@ -15,7 +15,7 @@ FULLTARGET = $(BINDIR)/$(TARGET)
 export MPIF90=mpif90
 export COMPILER=gfortran
 MODULEFLAG = -I/usr/local/include -I$(OBJDIR) -J$(OBJDIR)
-FFLAGS = $(MODULEFLAG) -I$(SDF)/include
+FFLAGS = $(MODULEFLAG) -I$(SDF)/include -g
 LDFLAGS = $(FFLAGS) -L$(SDF)/lib -lsdf
 
 FC=$(MPIF90)
@@ -34,9 +34,17 @@ $(SDFMOD):
 %.o: %.f90
 	$(FC) -c $(FFLAGS) -o $(OBJDIR)/$@ $<
 
+$(FULLTARGET): | $(BINDIR)
+
+$(BINDIR):
+	@mkdir -p $(BINDIR)
+
 $(OBJFILES): | $(OBJDIR)
 
 $(OBJDIR):
 	@mkdir -p $(OBJDIR)
 
-main.o: main.f90 sdf_io.o
+clean:
+	rm -rf $(OBJDIR) $(BINDIR)
+
+main.o: main.f90 sdf_io.o mpi_routines.o
