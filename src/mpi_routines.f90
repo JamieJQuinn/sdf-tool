@@ -3,20 +3,18 @@ MODULE mpi_routines
   include 'mpif.h'
 
   PRIVATE
-  PUBLIC :: mpi_minimal_init, mpi_close
+  PUBLIC :: mpi_start, mpi_finish
 
 CONTAINS
 
-  SUBROUTINE mpi_minimal_init
-    INTEGER :: rank, errcode, nproc
+  SUBROUTINE mpi_start
+    INTEGER :: errcode
     CALL MPI_INIT(errcode)
-    CALL MPI_COMM_SIZE(MPI_COMM_WORLD, nproc, errcode)
-    CALL MPI_COMM_RANK(MPI_COMM_WORLD, rank, errcode)
-  END SUBROUTINE mpi_minimal_init
+  END SUBROUTINE mpi_start
 
-  SUBROUTINE mpi_close
+  SUBROUTINE mpi_finish
     INTEGER :: errcode
     CALL MPI_FINALIZE(errcode)
-  END SUBROUTINE mpi_close
+  END SUBROUTINE mpi_finish
 
 END MODULE

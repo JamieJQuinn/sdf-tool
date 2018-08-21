@@ -5,7 +5,7 @@ SRCDIR=src
 OBJDIR=obj
 BINDIR=bin
 
-TARGET=sdf-tool
+TARGET=main
 
 SDF := SDF/FORTRAN
 SDFMOD = $(SDF)/include/sdf.mod
@@ -45,6 +45,6 @@ $(OBJDIR):
 	@mkdir -p $(OBJDIR)
 
 clean:
-	rm -rf $(OBJDIR) $(BINDIR)
+	rm -rf $(OBJDIR) $(FULLTARGET)
 
 main.o: main.f90 sdf_io.o mpi_routines.o

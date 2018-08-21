@@ -4,10 +4,10 @@ program sdf_tool
 
   print *, "Welcome to sdf-tool!"
 
-  CALL mpi_minimal_init
+  CALL mpi_start
 
   CALL load_sdf
 
-  CALL mpi_close
+  CALL mpi_finish
 
 end program sdf_tool
