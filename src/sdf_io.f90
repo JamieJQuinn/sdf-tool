@@ -25,16 +25,45 @@ MODULE sdf_io
   LOGICAL :: restart_flag
   TYPE(jobid_type) :: jobid
 
+  !! Serial Blocks
+  REAL(num) :: dt_from_restart, time_prev, total_visc_heating
+
 CONTAINS
+  FUNCTION str_cmp(str_in, str_test)
+
+    CHARACTER(*), INTENT(IN) :: str_in, str_test
+    CHARACTER(30) :: str_trim
+    LOGICAL :: str_cmp
+    INTEGER :: l
+
+    str_trim = TRIM(ADJUSTL(str_in))
+    l = LEN(str_test)
+
+    IF (l > LEN(str_in)) THEN
+      str_cmp = .FALSE.
+      RETURN
+    END IF
+
+    IF (str_trim(l+1:l+1) /= ' ') THEN
+      str_cmp = .FALSE.
+      RETURN
+    END IF
+
+    str_cmp = str_trim(1:l) == str_test
+
+  END FUNCTION str_cmp
+
   SUBROUTINE load_sdf(filename)
 
-    !CHARACTER(LEN=c_id_length) :: block_id, mesh_id, str1
-    !CHARACTER(LEN=c_max_string_length) :: name
+    CHARACTER(LEN=c_id_length) :: block_id
+    !CHARACTER(LEN=c_id_length) :: mesh_id, str1
+    CHARACTER(LEN=c_max_string_length) :: name
     !CHARACTER(LEN=22) :: filename_fmt
     CHARACTER(LEN=*), INTENT(IN) :: filename
     CHARACTER(LEN=6+data_dir_max_length+n_zeros+c_id_length) :: full_filename
-    !INTEGER :: blocktype, datatype
-    !INTEGER :: ierr, iblock, nblocks, ndims, geometry
+    INTEGER :: blocktype, datatype
+    INTEGER :: ierr, iblock, nblocks, ndims
+    !INTEGER :: geometry
     !INTEGER, DIMENSION(4) :: dims
     !INTEGER, DIMENSION(c_ndims) :: global_dims
     INTEGER :: comm = 0
@@ -51,23 +80,45 @@ CONTAINS
     CALL sdf_read_header(sdf_handle, step, time, c_code_name, code_io_version, &
         string_len, restart_flag)
 
-    !nblocks = sdf_read_nblocks(sdf_handle)
+    nblocks = sdf_read_nblocks(sdf_handle)
     jobid = sdf_read_jobid(sdf_handle)
 
+    PRINT*, 'READING HEADER'
     PRINT*, 'step', step
     PRINT*, 'time', time
     PRINT*, 'c_code_name', c_code_name
     PRINT*, 'code_io_version', code_io_version
     PRINT*, 'string_len', string_len
     PRINT*, 'restart_flag', restart_flag
+    PRINT*, 'nblocks', nblocks
+    PRINT*, 'jobid', jobid
+    PRINT*, 'DONE READING HEADER'
 
-    !PRINT*, 'Input file contains', nblocks, 'blocks'
-
-    !CALL sdf_read_blocklist(sdf_handle)
-
-    !CALL sdf_seek_start(sdf_handle)
+    CALL sdf_read_blocklist(sdf_handle)
+    CALL sdf_seek_start(sdf_handle)
 
     !global_dims = (/ nx_global+1, ny_global+1, nz_global+1 /)
+
+    DO iblock = 1, nblocks
+      CALL sdf_read_next_block_header(sdf_handle, block_id, name, blocktype, &
+          ndims, datatype)
+      SELECT CASE(blocktype)
+      CASE(c_blocktype_constant)
+        IF (str_cmp(block_id, 'dt')) THEN
+          CALL sdf_read_srl(sdf_handle, dt_from_restart)
+        ELSE IF (str_cmp(block_id, 'time_prev')) THEN
+          CALL sdf_read_srl(sdf_handle, time_prev)
+        ELSE IF (str_cmp(block_id, 'visc_heating')) THEN
+          CALL sdf_read_srl(sdf_handle, total_visc_heating)
+        END IF
+      END SELECT
+    END DO
+
+    PRINT*, 'READING SERIAL BLOCKS'
+    PRINT*, 'dt_from_restart', dt_from_restart
+    PRINT*, 'time_prev', time_prev
+    PRINT*, 'total_visc_heating', total_visc_heating
+    PRINT*, 'DONE READING SERIAL BLOCKS'
 
     !DO iblock = 1, nblocks
       !CALL sdf_read_next_block_header(sdf_handle, block_id, name, blocktype, &
