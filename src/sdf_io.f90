@@ -229,13 +229,15 @@ CONTAINS
         !c_compile_date, run_date)
     !CALL sdf_write_cpu_split(sdf_handle, 'cpu_rank', 'CPUs/Original rank', &
         !cell_nx_maxs, cell_ny_maxs, cell_nz_maxs)
-    !CALL sdf_write_srl(sdf_handle, 'dt', 'Time increment', dt)
-    !CALL sdf_write_srl(sdf_handle, 'time_prev', 'Last dump time requested', &
-        !time_prev)
-    !CALL sdf_write_srl(sdf_handle, 'visc_heating', 'Viscous heating total', &
-        !visc_heating)
+    CALL sdf_write_srl(sdf_handle, 'dt', 'Time increment', dt_from_restart)
+    CALL sdf_write_srl(sdf_handle, 'time_prev', 'Last dump time requested', &
+        time_prev)
+    CALL sdf_write_srl(sdf_handle, 'visc_heating', 'Viscous heating total', &
+        total_visc_heating)
 
     !CALL sdf_write_srl_plain_mesh(sdf_handle, 'grid', 'Grid/Grid', &
         !xb_global, yb_global, zb_global, convert)
+
+    CALL sdf_close(sdf_handle)
   END SUBROUTINE save_sdf
 END MODULE sdf_io
