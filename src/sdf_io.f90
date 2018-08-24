@@ -6,63 +6,66 @@ MODULE sdf_io
   implicit none
 
   private
-  public :: load_sdf
+  public :: load_sdf, save_sdf
 
   INTEGER, PARAMETER :: num = KIND(1.D0)
   INTEGER, PARAMETER :: num_sz = 8
-
   INTEGER, PARAMETER :: c_max_string_length = 128
 
   INTEGER, PARAMETER :: data_dir_max_length = 64
   CHARACTER(LEN = data_dir_max_length) :: data_dir
 
   INTEGER, PARAMETER :: n_zeros = 4
-
   INTEGER, PARAMETER :: c_ndims = 3
 
+  !! Header vars
+  INTEGER :: step, code_io_version, string_len
+  REAL(num) :: time
+  CHARACTER(LEN=c_id_length) :: c_code_name
+  LOGICAL :: restart_flag
   TYPE(jobid_type) :: jobid
 
 CONTAINS
-  SUBROUTINE load_sdf
+  SUBROUTINE load_sdf(filename)
 
-    CHARACTER(LEN=c_id_length) :: code_name, block_id, mesh_id, str1
-    CHARACTER(LEN=c_max_string_length) :: name
-    CHARACTER(LEN=22) :: filename_fmt
-    CHARACTER(LEN=5+n_zeros+c_id_length) :: filename
+    !CHARACTER(LEN=c_id_length) :: block_id, mesh_id, str1
+    !CHARACTER(LEN=c_max_string_length) :: name
+    !CHARACTER(LEN=22) :: filename_fmt
+    CHARACTER(LEN=*), INTENT(IN) :: filename
     CHARACTER(LEN=6+data_dir_max_length+n_zeros+c_id_length) :: full_filename
-    INTEGER :: blocktype, datatype, code_io_version, string_len
-    INTEGER :: ierr, iblock, nblocks, ndims, geometry
-    INTEGER, DIMENSION(4) :: dims
-    INTEGER, DIMENSION(c_ndims) :: global_dims
-    REAL(num), DIMENSION(2*c_ndims) :: extents
-    LOGICAL :: restart_flag
+    !INTEGER :: blocktype, datatype
+    !INTEGER :: ierr, iblock, nblocks, ndims, geometry
+    !INTEGER, DIMENSION(4) :: dims
+    !INTEGER, DIMENSION(c_ndims) :: global_dims
+    INTEGER :: comm = 0
+    !REAL(num), DIMENSION(2*c_ndims) :: extents
+
     TYPE(sdf_file_handle) :: sdf_handle
-
-    INTEGER :: step, file_number
-    REAL(num) :: time
-
-    step = -1
-    filename = "test/test.sdf"
 
     full_filename = TRIM(filename)
 
-    PRINT*,'Attempting to restart from file: ',TRIM(full_filename)
+    PRINT*,'Attempting to read from file: ', full_filename
 
-    CALL sdf_open(sdf_handle, full_filename, 0, c_sdf_read)
+    CALL sdf_open(sdf_handle, full_filename, comm, c_sdf_read)
 
-    CALL sdf_read_header(sdf_handle, step, time, code_name, code_io_version, &
+    CALL sdf_read_header(sdf_handle, step, time, c_code_name, code_io_version, &
         string_len, restart_flag)
 
-    nblocks = sdf_read_nblocks(sdf_handle)
+    !nblocks = sdf_read_nblocks(sdf_handle)
     jobid = sdf_read_jobid(sdf_handle)
 
-    PRINT*, 'Loading snapshot for time', time
+    PRINT*, 'step', step
+    PRINT*, 'time', time
+    PRINT*, 'c_code_name', c_code_name
+    PRINT*, 'code_io_version', code_io_version
+    PRINT*, 'string_len', string_len
+    PRINT*, 'restart_flag', restart_flag
 
-    PRINT*, 'Input file contains', nblocks, 'blocks'
+    !PRINT*, 'Input file contains', nblocks, 'blocks'
 
-    CALL sdf_read_blocklist(sdf_handle)
+    !CALL sdf_read_blocklist(sdf_handle)
 
-    CALL sdf_seek_start(sdf_handle)
+    !CALL sdf_seek_start(sdf_handle)
 
     !global_dims = (/ nx_global+1, ny_global+1, nz_global+1 /)
 
@@ -157,4 +160,31 @@ CONTAINS
 
     CALL sdf_close(sdf_handle)
   END SUBROUTINE load_sdf
+
+  SUBROUTINE save_sdf(filename)
+    CHARACTER(LEN=*), INTENT(IN) :: filename
+    CHARACTER(LEN=6+data_dir_max_length+n_zeros+c_id_length) :: full_filename
+    INTEGER :: comm = 0
+    TYPE(sdf_file_handle) :: sdf_handle
+
+    full_filename = TRIM(filename)
+
+    CALL sdf_open(sdf_handle, full_filename, comm, c_sdf_write)
+    CALL sdf_set_string_length(sdf_handle, c_max_string_length)
+    CALL sdf_write_header(sdf_handle, TRIM(c_code_name), 1, step, time, &
+        restart_flag, jobid)
+    !CALL sdf_write_run_info(sdf_handle, c_version, c_revision, c_minor_rev, &
+        !c_commit_id, '', c_compile_machine, c_compile_flags, 0_8, &
+        !c_compile_date, run_date)
+    !CALL sdf_write_cpu_split(sdf_handle, 'cpu_rank', 'CPUs/Original rank', &
+        !cell_nx_maxs, cell_ny_maxs, cell_nz_maxs)
+    !CALL sdf_write_srl(sdf_handle, 'dt', 'Time increment', dt)
+    !CALL sdf_write_srl(sdf_handle, 'time_prev', 'Last dump time requested', &
+        !time_prev)
+    !CALL sdf_write_srl(sdf_handle, 'visc_heating', 'Viscous heating total', &
+        !visc_heating)
+
+    !CALL sdf_write_srl_plain_mesh(sdf_handle, 'grid', 'Grid/Grid', &
+        !xb_global, yb_global, zb_global, convert)
+  END SUBROUTINE save_sdf
 END MODULE sdf_io
