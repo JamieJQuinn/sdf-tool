@@ -3,20 +3,13 @@ MODULE sdf_io
   USE sdf
   USE sdf_job_info
 
+  USE shared_data
+  USE mpi_routines
+
   implicit none
 
   private
   public :: load_sdf, save_sdf
-
-  INTEGER, PARAMETER :: num = KIND(1.D0)
-  INTEGER, PARAMETER :: num_sz = 8
-  INTEGER, PARAMETER :: c_max_string_length = 128
-
-  INTEGER, PARAMETER :: data_dir_max_length = 64
-  CHARACTER(LEN = data_dir_max_length) :: data_dir
-
-  INTEGER, PARAMETER :: n_zeros = 4
-  INTEGER, PARAMETER :: c_ndims = 3
 
   !! Header vars
   INTEGER :: step, code_io_version, string_len
@@ -28,7 +21,16 @@ MODULE sdf_io
   !! Serial Blocks
   REAL(num) :: dt_from_restart, time_prev, total_visc_heating
 
+  !! Grid
+  INTEGER :: geometry
+  INTEGER :: nx_global, ny_global, nz_global
+  INTEGER, DIMENSION(4) :: dims
+  INTEGER, DIMENSION(c_ndims) :: global_dims
+  REAL(num), DIMENSION(2*c_ndims) :: extents
+  REAL(num), DIMENSION(:), ALLOCATABLE :: xb_global, yb_global, zb_global
+
 CONTAINS
+  !! This function taken directly from Lare3d
   FUNCTION str_cmp(str_in, str_test)
 
     CHARACTER(*), INTENT(IN) :: str_in, str_test
@@ -63,11 +65,7 @@ CONTAINS
     CHARACTER(LEN=6+data_dir_max_length+n_zeros+c_id_length) :: full_filename
     INTEGER :: blocktype, datatype
     INTEGER :: ierr, iblock, nblocks, ndims
-    !INTEGER :: geometry
-    !INTEGER, DIMENSION(4) :: dims
-    !INTEGER, DIMENSION(c_ndims) :: global_dims
     INTEGER :: comm = 0
-    !REAL(num), DIMENSION(2*c_ndims) :: extents
 
     TYPE(sdf_file_handle) :: sdf_handle
 
@@ -97,8 +95,6 @@ CONTAINS
     CALL sdf_read_blocklist(sdf_handle)
     CALL sdf_seek_start(sdf_handle)
 
-    !global_dims = (/ nx_global+1, ny_global+1, nz_global+1 /)
-
     DO iblock = 1, nblocks
       CALL sdf_read_next_block_header(sdf_handle, block_id, name, blocktype, &
           ndims, datatype)
@@ -111,45 +107,25 @@ CONTAINS
         ELSE IF (str_cmp(block_id, 'visc_heating')) THEN
           CALL sdf_read_srl(sdf_handle, total_visc_heating)
         END IF
+      CASE(c_blocktype_plain_mesh)
+        IF (ndims /= c_ndims .OR. datatype /= sdf_num &
+            .OR. .NOT.str_cmp(block_id, 'grid')) CYCLE
+
+        CALL sdf_read_plain_mesh_info(sdf_handle, geometry, dims, extents)
+
+        nx_global = dims(1)
+        ny_global = dims(2)
+        nz_global = dims(3)
+
+        !CALL mpi_create_types(nx_global, ny_global, nz_global)
+
+        ALLOCATE(xb_global(0:nx_global))
+        ALLOCATE(yb_global(0:ny_global))
+        ALLOCATE(zb_global(0:nz_global))
+
+        CALL sdf_read_srl_plain_mesh(sdf_handle, xb_global, yb_global, zb_global)
       END SELECT
     END DO
-
-    PRINT*, 'READING SERIAL BLOCKS'
-    PRINT*, 'dt_from_restart', dt_from_restart
-    PRINT*, 'time_prev', time_prev
-    PRINT*, 'total_visc_heating', total_visc_heating
-    PRINT*, 'DONE READING SERIAL BLOCKS'
-
-    !DO iblock = 1, nblocks
-      !CALL sdf_read_next_block_header(sdf_handle, block_id, name, blocktype, &
-          !ndims, datatype)
-
-      !SELECT CASE(blocktype)
-      !CASE(c_blocktype_constant)
-        !IF (str_cmp(block_id, 'dt')) THEN
-          !CALL sdf_read_srl(sdf_handle, dt_from_restart)
-        !ELSE IF (str_cmp(block_id, 'time_prev')) THEN
-          !CALL sdf_read_srl(sdf_handle, time_prev)
-        !ELSE IF (str_cmp(block_id, 'visc_heating')) THEN
-          !CALL sdf_read_srl(sdf_handle, total_visc_heating)
-          !IF (rank /= 0) total_visc_heating = 0
-        !END IF
-      !CASE(c_blocktype_plain_mesh)
-        !IF (ndims /= c_ndims .OR. datatype /= sdf_num &
-            !.OR. .NOT.str_cmp(block_id, 'grid')) CYCLE
-
-        !CALL sdf_read_plain_mesh_info(sdf_handle, geometry, dims, extents)
-
-        !IF (geometry /= c_geometry_cartesian &
-            !.OR. ALL(dims(1:c_ndims) /= global_dims(1:c_ndims))) CYCLE
-
-        !! Should read the grid from file at this point?
-        !x_min = extents(1)
-        !x_max = extents(c_ndims+1)
-        !y_min = extents(2)
-        !y_max = extents(c_ndims+2)
-        !z_min = extents(3)
-        !z_max = extents(c_ndims+3)
 
       !CASE(c_blocktype_plain_variable)
         !IF (ndims /= c_ndims .OR. datatype /= sdf_num) CYCLE

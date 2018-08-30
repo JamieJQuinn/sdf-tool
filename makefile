@@ -1,4 +1,4 @@
-SRCFILES=main.f90 sdf_io.f90 mpi_routines.f90
+SRCFILES=main.f90 sdf_io.f90 mpi_routines.f90 shared_data.f90
 OBJFILES := $(SRCFILES:.f90=.o)
 
 SRCDIR=src
@@ -47,4 +47,6 @@ $(OBJDIR):
 clean:
 	rm -rf $(OBJDIR) $(FULLTARGET)
 
-main.o: main.f90 sdf_io.o mpi_routines.o
+main.o: main.f90 sdf_io.o mpi_routines.o shared_data.o
+sdf_io.o: sdf_io.f90 mpi_routines.o shared_data.o
+mpi_routines.o: mpi_routines.f90 shared_data.o
