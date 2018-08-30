@@ -8,12 +8,14 @@ MODULE shared_data
 
   INTEGER, PARAMETER :: num = KIND(1.D0)
   INTEGER, PARAMETER :: num_sz = 8
-  INTEGER, PARAMETER :: c_max_string_length = 128
+  !INTEGER, PARAMETER :: c_max_string_length = 128
 
   INTEGER, PARAMETER :: data_dir_max_length = 64
 
   INTEGER, PARAMETER :: n_zeros = 4
   INTEGER, PARAMETER :: c_ndims = 3
+  !INTEGER, PARAMETER :: i4  = SELECTED_INT_KIND(9)  ! 4-byte 2^31 ~ 10^9
+  !INTEGER, PARAMETER :: i8  = SELECTED_INT_KIND(0_8)  ! 4-byte 2^31 ~ 10^9
 
   !! MPI variables
   INTEGER, PARAMETER :: mpireal = MPI_DOUBLE_PRECISION

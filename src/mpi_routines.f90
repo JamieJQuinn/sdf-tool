@@ -4,10 +4,8 @@ MODULE mpi_routines
 
   implicit none
 
-  !include 'mpif.h'
-
   PRIVATE
-  PUBLIC :: mpi_start, mpi_finish
+  PUBLIC :: mpi_start, mpi_finish, mpi_create_types
 CONTAINS
 
   SUBROUTINE mpi_start

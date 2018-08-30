@@ -2,6 +2,8 @@ MODULE sdf_io
 
   USE sdf
   USE sdf_job_info
+  USE sdf_input_ru
+  USE sdf_output_ru
 
   USE shared_data
   USE mpi_routines
@@ -18,7 +20,19 @@ MODULE sdf_io
   LOGICAL :: restart_flag
   TYPE(jobid_type) :: jobid
 
-  !! Serial Blocks
+  !! Run Information
+  INTEGER(i4) :: c_version, c_revision, c_minor_rev
+  CHARACTER(LEN=c_max_string_length) :: c_commit_id, sha1sum
+  CHARACTER(LEN=c_max_string_length) :: c_compile_machine, c_compile_flags
+  INTEGER(i8) :: defines
+  INTEGER(i4) :: c_compile_date, run_date, io_date
+
+  !! CPU Info
+  INTEGER, DIMENSION(:), ALLOCATABLE :: cell_nx_maxs, cell_ny_maxs, cell_nz_maxs
+  INTEGER, DIMENSION(c_ndims) :: cpu_dims
+  INTEGER :: cpu_geometry
+
+  !! Constants Blocks
   REAL(num) :: dt_from_restart, time_prev, total_visc_heating
 
   !! Grid
@@ -28,6 +42,9 @@ MODULE sdf_io
   INTEGER, DIMENSION(c_ndims) :: global_dims
   REAL(num), DIMENSION(2*c_ndims) :: extents
   REAL(num), DIMENSION(:), ALLOCATABLE :: xb_global, yb_global, zb_global
+
+  !! Simulation Variables
+  REAL(num), DIMENSION(:,:,:), ALLOCATABLE :: rho
 
 CONTAINS
   !! This function taken directly from Lare3d
@@ -58,7 +75,7 @@ CONTAINS
   SUBROUTINE load_sdf(filename)
 
     CHARACTER(LEN=c_id_length) :: block_id
-    !CHARACTER(LEN=c_id_length) :: mesh_id, str1
+    CHARACTER(LEN=c_id_length) :: mesh_id, str1
     CHARACTER(LEN=c_max_string_length) :: name
     !CHARACTER(LEN=22) :: filename_fmt
     CHARACTER(LEN=*), INTENT(IN) :: filename
@@ -99,6 +116,18 @@ CONTAINS
       CALL sdf_read_next_block_header(sdf_handle, block_id, name, blocktype, &
           ndims, datatype)
       SELECT CASE(blocktype)
+      CASE(c_blocktype_run_info)
+        CALL sdf_read_run_info(sdf_handle, c_version, c_revision, &
+          c_minor_rev, c_commit_id, sha1sum, c_compile_machine, &
+          c_compile_flags, defines, c_compile_date, run_date, io_date)
+      CASE(c_blocktype_cpu_split)
+        CALL sdf_read_cpu_split_info(sdf_handle, cpu_dims, cpu_geometry)
+        ALLOCATE(cell_nx_maxs(1:cpu_dims(1)+1))
+        ALLOCATE(cell_ny_maxs(1:cpu_dims(2)+1))
+        ALLOCATE(cell_nz_maxs(1:cpu_dims(3)+1))
+        CALL sdf_read_srl_cpu_split(sdf_handle, &
+          cell_nx_maxs, cell_ny_maxs, cell_nz_maxs)
+
       CASE(c_blocktype_constant)
         IF (str_cmp(block_id, 'dt')) THEN
           CALL sdf_read_srl(sdf_handle, dt_from_restart)
@@ -107,42 +136,43 @@ CONTAINS
         ELSE IF (str_cmp(block_id, 'visc_heating')) THEN
           CALL sdf_read_srl(sdf_handle, total_visc_heating)
         END IF
+
       CASE(c_blocktype_plain_mesh)
         IF (ndims /= c_ndims .OR. datatype /= sdf_num &
             .OR. .NOT.str_cmp(block_id, 'grid')) CYCLE
 
         CALL sdf_read_plain_mesh_info(sdf_handle, geometry, dims, extents)
 
-        nx_global = dims(1)
-        ny_global = dims(2)
-        nz_global = dims(3)
+        nx_global = dims(1) - 1
+        ny_global = dims(2) - 1
+        nz_global = dims(3) - 1
 
         PRINT*, 'READING GRID'
         PRINT*, 'dims', dims
         PRINT*, 'extents', extents
-        PRINT*, 'DONE READING GRID'
 
-        !CALL mpi_create_types(nx_global, ny_global, nz_global)
+        CALL mpi_create_types(nx_global, ny_global, nz_global)
 
-        ALLOCATE(xb_global(1:nx_global))
-        ALLOCATE(yb_global(1:ny_global))
-        ALLOCATE(zb_global(1:nz_global))
+        ALLOCATE(xb_global(1:dims(1)))
+        ALLOCATE(yb_global(1:dims(2)))
+        ALLOCATE(zb_global(1:dims(3)))
 
         CALL sdf_read_srl_plain_mesh(sdf_handle, xb_global, yb_global, zb_global)
-      END SELECT
-    END DO
 
-      !CASE(c_blocktype_plain_variable)
-        !IF (ndims /= c_ndims .OR. datatype /= sdf_num) CYCLE
+        PRINT*, 'DONE READING GRID'
 
-        !CALL sdf_read_plain_variable_info(sdf_handle, dims, str1, mesh_id)
+      CASE(c_blocktype_plain_variable)
+        IF (ndims /= c_ndims .OR. datatype /= sdf_num) CYCLE
 
-        !IF (.NOT.str_cmp(mesh_id, 'grid')) CYCLE
+        CALL sdf_read_plain_variable_info(sdf_handle, dims, str1, mesh_id)
 
-        !IF (str_cmp(block_id, 'Rho')) THEN
-          !CALL check_dims(dims)
-          !CALL sdf_read_plain_variable(sdf_handle, rho, &
-              !cell_distribution, cell_subarray)
+        IF (.NOT.str_cmp(mesh_id, 'grid')) CYCLE
+
+        IF (str_cmp(block_id, 'Rho')) THEN
+          PRINT*, 'READING VARIABLES'
+          PRINT*, 'dims', dims(1), dims(2), dims(3)
+          ALLOCATE(rho(-1:dims(1)+2, -1:dims(2)+2, -1:dims(3)+2))
+          CALL sdf_read_plain_variable(sdf_handle, rho, cell_distribution, cell_subarray)
 
         !ELSE IF (str_cmp(block_id, 'Energy')) THEN
           !CALL check_dims(dims)
@@ -185,10 +215,11 @@ CONTAINS
           !CALL sdf_read_plain_variable(sdf_handle, bz, &
               !bz_distribution, bz_subarray)
 
-        !END IF
+          PRINT*, 'DONE READING VARIABLES'
 
-      !END SELECT
-    !END DO
+        END IF
+      END SELECT
+    END DO
 
     CALL sdf_close(sdf_handle)
   END SUBROUTINE load_sdf
@@ -196,9 +227,12 @@ CONTAINS
   SUBROUTINE save_sdf(filename)
     CHARACTER(LEN=*), INTENT(IN) :: filename
     CHARACTER(LEN=6+data_dir_max_length+n_zeros+c_id_length) :: full_filename
+    CHARACTER(LEN=c_id_length) :: varname, units
+    INTEGER, DIMENSION(c_ndims) :: global_dims, dims
     INTEGER :: comm = 0
     LOGICAL :: convert = .FALSE.
     TYPE(sdf_file_handle) :: sdf_handle
+    TYPE(sdf_block_type), POINTER :: b
 
     full_filename = TRIM(filename)
 
@@ -206,11 +240,16 @@ CONTAINS
     CALL sdf_set_string_length(sdf_handle, c_max_string_length)
     CALL sdf_write_header(sdf_handle, TRIM(c_code_name), 1, step, time, &
         restart_flag, jobid)
-    !CALL sdf_write_run_info(sdf_handle, c_version, c_revision, c_minor_rev, &
-        !c_commit_id, '', c_compile_machine, c_compile_flags, 0_8, &
-        !c_compile_date, run_date)
-    !CALL sdf_write_cpu_split(sdf_handle, 'cpu_rank', 'CPUs/Original rank', &
-        !cell_nx_maxs, cell_ny_maxs, cell_nz_maxs)
+    CALL sdf_write_run_info(sdf_handle, c_version, c_revision, c_minor_rev, &
+        c_commit_id, '', c_compile_machine, c_compile_flags, 0_8, &
+        c_compile_date, run_date)
+    ! fix io date
+    b => sdf_handle%current_block
+    b%run%io_date = io_date
+    CALL write_run_info_meta(sdf_handle, 'run_info', 'Run_info')
+
+    CALL sdf_write_cpu_split(sdf_handle, 'cpu_rank', 'CPUs/Original rank', &
+        cell_nx_maxs, cell_ny_maxs, cell_nz_maxs)
     CALL sdf_write_srl(sdf_handle, 'dt', 'Time increment', dt_from_restart)
     CALL sdf_write_srl(sdf_handle, 'time_prev', 'Last dump time requested', &
         time_prev)
@@ -219,6 +258,17 @@ CONTAINS
 
     CALL sdf_write_srl_plain_mesh(sdf_handle, 'grid', 'Grid/Grid', &
         xb_global, yb_global, zb_global, convert)
+
+    global_dims = (/ nx_global, ny_global, nz_global /)
+
+    varname = 'Rho'
+    units = 'kg/m^3'
+    dims = global_dims
+
+    CALL sdf_write_plain_variable(sdf_handle, TRIM(varname), &
+        'Fluid/' // TRIM(varname), TRIM(units), dims, &
+        c_stagger_cell_centre, 'grid', rho, &
+        cell_distribution, cell_subarray, convert)
 
     CALL sdf_close(sdf_handle)
   END SUBROUTINE save_sdf

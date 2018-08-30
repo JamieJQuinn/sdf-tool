@@ -14,6 +14,7 @@ FULLTARGET = $(BINDIR)/$(TARGET)
 
 export MPIF90=mpif90
 export COMPILER=gfortran
+export MODE=debug
 MODULEFLAG = -I/usr/local/include -I$(OBJDIR) -J$(OBJDIR)
 FFLAGS = $(MODULEFLAG) -I$(SDF)/include -g
 LDFLAGS = $(FFLAGS) -L$(SDF)/lib -lsdf
