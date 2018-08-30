@@ -16,7 +16,7 @@ function do_serial_blocks_match ()
 
 function do_grids_match ()
 {
-  diff <($SDFFILTER -v grid test.sdf) <($SDFFILTER -v grid test_out.sdf)
+  diff <($SDFFILTER -c -v grid test.sdf) <($SDFFILTER -c -v grid test_out.sdf)
 }
 
 do_headers_match
