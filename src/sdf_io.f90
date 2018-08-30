@@ -117,11 +117,16 @@ CONTAINS
         ny_global = dims(2)
         nz_global = dims(3)
 
+        PRINT*, 'READING GRID'
+        PRINT*, 'dims', dims
+        PRINT*, 'extents', extents
+        PRINT*, 'DONE READING GRID'
+
         !CALL mpi_create_types(nx_global, ny_global, nz_global)
 
-        ALLOCATE(xb_global(0:nx_global))
-        ALLOCATE(yb_global(0:ny_global))
-        ALLOCATE(zb_global(0:nz_global))
+        ALLOCATE(xb_global(1:nx_global))
+        ALLOCATE(yb_global(1:ny_global))
+        ALLOCATE(zb_global(1:nz_global))
 
         CALL sdf_read_srl_plain_mesh(sdf_handle, xb_global, yb_global, zb_global)
       END SELECT
@@ -192,6 +197,7 @@ CONTAINS
     CHARACTER(LEN=*), INTENT(IN) :: filename
     CHARACTER(LEN=6+data_dir_max_length+n_zeros+c_id_length) :: full_filename
     INTEGER :: comm = 0
+    LOGICAL :: convert = .FALSE.
     TYPE(sdf_file_handle) :: sdf_handle
 
     full_filename = TRIM(filename)
@@ -211,8 +217,8 @@ CONTAINS
     CALL sdf_write_srl(sdf_handle, 'visc_heating', 'Viscous heating total', &
         total_visc_heating)
 
-    !CALL sdf_write_srl_plain_mesh(sdf_handle, 'grid', 'Grid/Grid', &
-        !xb_global, yb_global, zb_global, convert)
+    CALL sdf_write_srl_plain_mesh(sdf_handle, 'grid', 'Grid/Grid', &
+        xb_global, yb_global, zb_global, convert)
 
     CALL sdf_close(sdf_handle)
   END SUBROUTINE save_sdf

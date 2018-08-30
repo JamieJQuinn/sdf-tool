@@ -5,7 +5,6 @@ program sdf_tool
   print *, "Welcome to sdf-tool!"
 
   CALL mpi_start
-  !CALL mpi_create_types
 
   CALL load_sdf("test/test.sdf")
   CALL save_sdf("test/test_out.sdf")
