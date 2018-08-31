@@ -7,6 +7,7 @@ MODULE sdf_io
 
   USE shared_data
   USE mpi_routines
+  use plain_variable
 
   implicit none
 
@@ -44,7 +45,7 @@ MODULE sdf_io
   REAL(num), DIMENSION(:), ALLOCATABLE :: xb_global, yb_global, zb_global
 
   !! Simulation Variables
-  REAL(num), DIMENSION(:,:,:), ALLOCATABLE :: rho
+  type(PlainVariable) :: rho
 
 CONTAINS
   !! This function taken directly from Lare3d
@@ -170,9 +171,7 @@ CONTAINS
 
         IF (str_cmp(block_id, 'Rho')) THEN
           PRINT*, 'READING VARIABLES'
-          PRINT*, 'dims', dims(1), dims(2), dims(3)
-          ALLOCATE(rho(-1:dims(1)+2, -1:dims(2)+2, -1:dims(3)+2))
-          CALL sdf_read_plain_variable(sdf_handle, rho, cell_distribution, cell_subarray)
+          call load_var(rho, sdf_handle)
 
         !ELSE IF (str_cmp(block_id, 'Energy')) THEN
           !CALL check_dims(dims)
@@ -259,16 +258,7 @@ CONTAINS
     CALL sdf_write_srl_plain_mesh(sdf_handle, 'grid', 'Grid/Grid', &
         xb_global, yb_global, zb_global, convert)
 
-    global_dims = (/ nx_global, ny_global, nz_global /)
-
-    varname = 'Rho'
-    units = 'kg/m^3'
-    dims = global_dims
-
-    CALL sdf_write_plain_variable(sdf_handle, TRIM(varname), &
-        'Fluid/' // TRIM(varname), TRIM(units), dims, &
-        c_stagger_cell_centre, 'grid', rho, &
-        cell_distribution, cell_subarray, convert)
+    call save_var(rho, sdf_handle)
 
     CALL sdf_close(sdf_handle)
   END SUBROUTINE save_sdf

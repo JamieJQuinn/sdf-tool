@@ -33,4 +33,8 @@ MODULE shared_data
   INTEGER :: bx_yface, by_yface, bz_yface, by_yface1
   INTEGER :: bx_zface, by_zface, bz_zface, bz_zface1
 
+  INTEGER, PARAMETER :: c_stagger_bx = c_stagger_face_x
+  INTEGER, PARAMETER :: c_stagger_by = c_stagger_face_y
+  INTEGER, PARAMETER :: c_stagger_bz = c_stagger_face_z
+
 END MODULE shared_data
