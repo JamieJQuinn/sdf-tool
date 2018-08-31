@@ -45,7 +45,7 @@ MODULE sdf_io
   REAL(num), DIMENSION(:), ALLOCATABLE :: xb_global, yb_global, zb_global
 
   !! Simulation Variables
-  type(PlainVariable) :: rho
+  type(PlainVariable) :: rho, energy, vx, vy, vz, bx, by, bz, eta, iso, aniso
 
 CONTAINS
   !! This function taken directly from Lare3d
@@ -169,54 +169,45 @@ CONTAINS
 
         IF (.NOT.str_cmp(mesh_id, 'grid')) CYCLE
 
+        PRINT*, 'READING VARIABLES'
+
         IF (str_cmp(block_id, 'Rho')) THEN
-          PRINT*, 'READING VARIABLES'
           call load_var(rho, sdf_handle)
 
-        !ELSE IF (str_cmp(block_id, 'Energy')) THEN
-          !CALL check_dims(dims)
-          !CALL sdf_read_plain_variable(sdf_handle, energy, &
-              !cell_distribution, cell_subarray)
+        ELSE IF (str_cmp(block_id, 'Energy')) THEN
+          call load_var(energy, sdf_handle)
 
-        !ELSE IF (str_cmp(block_id, 'Vx')) THEN
-          !dims = dims - 1
-          !CALL check_dims(dims)
-          !CALL sdf_read_plain_variable(sdf_handle, vx, &
-              !node_distribution, node_subarray)
+        ELSE IF (str_cmp(block_id, 'Vx')) THEN
+          call load_var(vx, sdf_handle)
 
-        !ELSE IF (str_cmp(block_id, 'Vy')) THEN
-          !dims = dims - 1
-          !CALL check_dims(dims)
-          !CALL sdf_read_plain_variable(sdf_handle, vy, &
-              !node_distribution, node_subarray)
+        ELSE IF (str_cmp(block_id, 'Vy')) THEN
+          call load_var(vy, sdf_handle)
 
-        !ELSE IF (str_cmp(block_id, 'Vz')) THEN
-          !dims = dims - 1
-          !CALL check_dims(dims)
-          !CALL sdf_read_plain_variable(sdf_handle, vz, &
-              !node_distribution, node_subarray)
+        ELSE IF (str_cmp(block_id, 'Vz')) THEN
+          call load_var(vz, sdf_handle)
 
-        !ELSE IF (str_cmp(block_id, 'Bx')) THEN
-          !dims(1) = dims(1) - 1
-          !CALL check_dims(dims)
-          !CALL sdf_read_plain_variable(sdf_handle, bx, &
-              !bx_distribution, bx_subarray)
+        ELSE IF (str_cmp(block_id, 'Bx')) THEN
+          call load_var(bx, sdf_handle)
 
-        !ELSE IF (str_cmp(block_id, 'By')) THEN
-          !IF (c_ndims >= 2) dims(2) = dims(2) - 1
-          !CALL check_dims(dims)
-          !CALL sdf_read_plain_variable(sdf_handle, by, &
-              !by_distribution, by_subarray)
+        ELSE IF (str_cmp(block_id, 'By')) THEN
+          call load_var(by, sdf_handle)
 
-        !ELSE IF (str_cmp(block_id, 'Bz')) THEN
-          !IF (c_ndims >= 3) dims(3) = dims(3) - 1
-          !CALL check_dims(dims)
-          !CALL sdf_read_plain_variable(sdf_handle, bz, &
-              !bz_distribution, bz_subarray)
+        ELSE IF (str_cmp(block_id, 'Bz')) THEN
+          call load_var(bz, sdf_handle)
 
-          PRINT*, 'DONE READING VARIABLES'
+        ELSE IF (str_cmp(block_id, 'eta')) THEN
+          call load_var(eta, sdf_handle)
+
+        ELSE IF (str_cmp(block_id, 'Isotropic_Viscous_Heating')) THEN
+          call load_var(iso, sdf_handle)
+
+        ELSE IF (str_cmp(block_id, 'Anisotropic_Viscous_Heating')) THEN
+          call load_var(aniso, sdf_handle)
 
         END IF
+
+        PRINT*, 'DONE READING VARIABLES'
+
       END SELECT
     END DO
 
@@ -259,6 +250,16 @@ CONTAINS
         xb_global, yb_global, zb_global, convert)
 
     call save_var(rho, sdf_handle)
+    call save_var(energy, sdf_handle)
+    call save_var(vx, sdf_handle)
+    call save_var(vy, sdf_handle)
+    call save_var(vz, sdf_handle)
+    call save_var(bx, sdf_handle)
+    call save_var(by, sdf_handle)
+    call save_var(bz, sdf_handle)
+    call save_var(eta, sdf_handle)
+    call save_var(iso, sdf_handle)
+    call save_var(aniso, sdf_handle)
 
     CALL sdf_close(sdf_handle)
   END SUBROUTINE save_sdf

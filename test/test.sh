@@ -24,6 +24,16 @@ function do_grids_match ()
 function do_variables_match ()
 {
   diff <($SDFFILTER -v Rho test.sdf) <($SDFFILTER -v Rho test_out.sdf)
+  diff <($SDFFILTER -v Energy test.sdf) <($SDFFILTER -v Energy test_out.sdf)
+  diff <($SDFFILTER -v Vx test.sdf) <($SDFFILTER -v Vx test_out.sdf)
+  diff <($SDFFILTER -v Vy test.sdf) <($SDFFILTER -v Vy test_out.sdf)
+  diff <($SDFFILTER -v Vz test.sdf) <($SDFFILTER -v Vz test_out.sdf)
+  diff <($SDFFILTER -v Bx test.sdf) <($SDFFILTER -v Bx test_out.sdf)
+  diff <($SDFFILTER -v By test.sdf) <($SDFFILTER -v By test_out.sdf)
+  diff <($SDFFILTER -v Bz test.sdf) <($SDFFILTER -v Bz test_out.sdf)
+  diff <($SDFFILTER -v eta test.sdf) <($SDFFILTER -v eta test_out.sdf)
+  diff <($SDFFILTER -v iso test.sdf) <($SDFFILTER -v iso test_out.sdf)
+  diff <($SDFFILTER -v aniso test.sdf) <($SDFFILTER -v aniso test_out.sdf)
 }
 
 do_headers_match
