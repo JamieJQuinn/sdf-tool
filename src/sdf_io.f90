@@ -45,7 +45,8 @@ MODULE sdf_io
   REAL(num), DIMENSION(:), ALLOCATABLE :: xb_global, yb_global, zb_global
 
   !! Simulation Variables
-  type(PlainVariable) :: rho, energy, vx, vy, vz, bx, by, bz, eta, iso, aniso
+  integer :: nsimvars
+  type(PlainVariable), dimension(:), allocatable :: variables
 
 CONTAINS
   !! This function taken directly from Lare3d
@@ -83,6 +84,7 @@ CONTAINS
     CHARACTER(LEN=6+data_dir_max_length+n_zeros+c_id_length) :: full_filename
     INTEGER :: blocktype, datatype
     INTEGER :: ierr, iblock, nblocks, ndims
+    INTEGER :: isimvar = 1
     INTEGER :: comm = 0
 
     TYPE(sdf_file_handle) :: sdf_handle
@@ -112,6 +114,9 @@ CONTAINS
 
     CALL sdf_read_blocklist(sdf_handle)
     CALL sdf_seek_start(sdf_handle)
+
+    nsimvars = nblocks - 6
+    allocate(variables(nsimvars))
 
     DO iblock = 1, nblocks
       CALL sdf_read_next_block_header(sdf_handle, block_id, name, blocktype, &
@@ -169,44 +174,8 @@ CONTAINS
 
         IF (.NOT.str_cmp(mesh_id, 'grid')) CYCLE
 
-        PRINT*, 'READING VARIABLES'
-
-        IF (str_cmp(block_id, 'Rho')) THEN
-          call load_var(rho, sdf_handle)
-
-        ELSE IF (str_cmp(block_id, 'Energy')) THEN
-          call load_var(energy, sdf_handle)
-
-        ELSE IF (str_cmp(block_id, 'Vx')) THEN
-          call load_var(vx, sdf_handle)
-
-        ELSE IF (str_cmp(block_id, 'Vy')) THEN
-          call load_var(vy, sdf_handle)
-
-        ELSE IF (str_cmp(block_id, 'Vz')) THEN
-          call load_var(vz, sdf_handle)
-
-        ELSE IF (str_cmp(block_id, 'Bx')) THEN
-          call load_var(bx, sdf_handle)
-
-        ELSE IF (str_cmp(block_id, 'By')) THEN
-          call load_var(by, sdf_handle)
-
-        ELSE IF (str_cmp(block_id, 'Bz')) THEN
-          call load_var(bz, sdf_handle)
-
-        ELSE IF (str_cmp(block_id, 'eta')) THEN
-          call load_var(eta, sdf_handle)
-
-        ELSE IF (str_cmp(block_id, 'Isotropic_Viscous_Heating')) THEN
-          call load_var(iso, sdf_handle)
-
-        ELSE IF (str_cmp(block_id, 'Anisotropic_Viscous_Heating')) THEN
-          call load_var(aniso, sdf_handle)
-
-        END IF
-
-        PRINT*, 'DONE READING VARIABLES'
+        call load_var(variables(isimvar), sdf_handle)
+        isimvar = isimvar + 1
 
       END SELECT
     END DO
@@ -220,6 +189,7 @@ CONTAINS
     CHARACTER(LEN=c_id_length) :: varname, units
     INTEGER, DIMENSION(c_ndims) :: global_dims, dims
     INTEGER :: comm = 0
+    INTEGER :: isimvar = 1
     LOGICAL :: convert = .FALSE.
     TYPE(sdf_file_handle) :: sdf_handle
     TYPE(sdf_block_type), POINTER :: b
@@ -249,17 +219,9 @@ CONTAINS
     CALL sdf_write_srl_plain_mesh(sdf_handle, 'grid', 'Grid/Grid', &
         xb_global, yb_global, zb_global, convert)
 
-    call save_var(rho, sdf_handle)
-    call save_var(energy, sdf_handle)
-    call save_var(vx, sdf_handle)
-    call save_var(vy, sdf_handle)
-    call save_var(vz, sdf_handle)
-    call save_var(bx, sdf_handle)
-    call save_var(by, sdf_handle)
-    call save_var(bz, sdf_handle)
-    call save_var(eta, sdf_handle)
-    call save_var(iso, sdf_handle)
-    call save_var(aniso, sdf_handle)
+    do isimvar = 1, nsimvars
+      call save_var(variables(isimvar), sdf_handle)
+    end do
 
     CALL sdf_close(sdf_handle)
   END SUBROUTINE save_sdf
