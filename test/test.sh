@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
 SDFFILTER=~/prog/sdf-tool/SDF/utilities/sdffilter
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}"  )" >/dev/null && pwd  )"
 
 function do_headers_match ()
 {
@@ -35,6 +36,10 @@ function do_variables_match ()
   diff <($SDFFILTER -v iso test.sdf) <($SDFFILTER -v iso test_out.sdf)
   diff <($SDFFILTER -v aniso test.sdf) <($SDFFILTER -v aniso test_out.sdf)
 }
+
+cd $DIR
+rm test_out.sdf
+../bin/sdf-tool --input test.sdf --output test_out.sdf
 
 do_headers_match
 do_serial_blocks_match

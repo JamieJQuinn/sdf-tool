@@ -3,7 +3,7 @@ program sdf_tool
   use mpi_routines
 
   INTEGER :: i, narg
-  CHARACTER(len=32) :: arg
+  CHARACTER(len=32) :: arg, input, output
 
   narg = iargc()
 
@@ -13,13 +13,13 @@ program sdf_tool
     print *, arg
     select case(arg)
     case("--input")
-      CALL get_command_argument(i+1, arg)
+      CALL get_command_argument(i+1, input)
       i = i+1
-      print *, "Input: ", arg
+      print *, "Input: ", input
     case("--output")
-      CALL get_command_argument(i+1, arg)
+      CALL get_command_argument(i+1, output)
       i = i+1
-      print *, "Output: ", arg
+      print *, "Output: ", output
     end select
     i = i+1
   end do
@@ -28,8 +28,8 @@ program sdf_tool
 
   CALL mpi_start
 
-  !CALL load_sdf("test/test.sdf")
-  !CALL save_sdf("test/test_out.sdf")
+  CALL load_sdf(input)
+  CALL save_sdf(output)
 
   CALL mpi_finish
 
