@@ -10,14 +10,16 @@ TARGET=main
 SDF := SDF/FORTRAN
 SDFMOD = $(SDF)/include/sdf.mod
 
+FLAP := FLAP/FLAP
+
 FULLTARGET = $(BINDIR)/$(TARGET)
 
 export MPIF90=mpif90
 export COMPILER=gfortran
 export MODE=debug
 MODULEFLAG = -I/usr/local/include -I$(OBJDIR) -J$(OBJDIR)
-FFLAGS = $(MODULEFLAG) -I$(SDF)/include -g
-LDFLAGS = $(FFLAGS) -L$(SDF)/lib -lsdf
+FFLAGS = $(MODULEFLAG) -I$(SDF)/include -I$(FLAP)/static/mod -g
+LDFLAGS = $(FFLAGS) -L$(SDF)/lib -L$(FLAP)/static -lflap -lsdf
 
 FC=$(MPIF90)
 
