@@ -37,11 +37,27 @@ function do_variables_match ()
   diff <($SDFFILTER -v aniso test.sdf) <($SDFFILTER -v aniso test_out.sdf)
 }
 
+function does_block_selection_work ()
+{
+  if [ "$($SDFFILTER -v 0 test_out.sdf | awk '/nblocks_file/ {print $2}')" -eq "16" ]
+  then
+    true
+  else
+    echo "Block Selection Failed!"
+    false
+  fi
+}
+
 cd $DIR
 rm test_out.sdf
-../bin/sdf-tool --input test.sdf --output test_out.sdf
+../bin/sdf-tool --input test.sdf --output test_out.sdf --output-all
 
 do_headers_match
 do_serial_blocks_match
 do_grids_match
 do_variables_match
+
+rm test_out.sdf
+../bin/sdf-tool --input test.sdf --output test_out.sdf --output-variables Energy Rho Vx Vy Vz Bx By Bz eta Isotropic_Viscous_Heating
+
+does_block_selection_work

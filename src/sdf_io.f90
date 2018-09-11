@@ -91,7 +91,7 @@ CONTAINS
 
     full_filename = TRIM(filename)
 
-    PRINT*,'Attempting to read from file: ', full_filename
+    !PRINT*,'Attempting to read from file: ', full_filename
 
     CALL sdf_open(sdf_handle, full_filename, comm, c_sdf_read)
 
@@ -101,16 +101,16 @@ CONTAINS
     nblocks = sdf_read_nblocks(sdf_handle)
     jobid = sdf_read_jobid(sdf_handle)
 
-    PRINT*, 'READING HEADER'
-    PRINT*, 'step', step
-    PRINT*, 'time', time
-    PRINT*, 'c_code_name', c_code_name
-    PRINT*, 'code_io_version', code_io_version
-    PRINT*, 'string_len', string_len
-    PRINT*, 'restart_flag', restart_flag
-    PRINT*, 'nblocks', nblocks
-    PRINT*, 'jobid', jobid
-    PRINT*, 'DONE READING HEADER'
+    !PRINT*, 'READING HEADER'
+    !PRINT*, 'step', step
+    !PRINT*, 'time', time
+    !PRINT*, 'c_code_name', c_code_name
+    !PRINT*, 'code_io_version', code_io_version
+    !PRINT*, 'string_len', string_len
+    !PRINT*, 'restart_flag', restart_flag
+    !PRINT*, 'nblocks', nblocks
+    !PRINT*, 'jobid', jobid
+    !PRINT*, 'DONE READING HEADER'
 
     CALL sdf_read_blocklist(sdf_handle)
     CALL sdf_seek_start(sdf_handle)
@@ -153,9 +153,9 @@ CONTAINS
         ny_global = dims(2) - 1
         nz_global = dims(3) - 1
 
-        PRINT*, 'READING GRID'
-        PRINT*, 'dims', dims
-        PRINT*, 'extents', extents
+        !PRINT*, 'READING GRID'
+        !PRINT*, 'dims', dims
+        !PRINT*, 'extents', extents
 
         CALL mpi_create_types(nx_global, ny_global, nz_global)
 
@@ -165,7 +165,7 @@ CONTAINS
 
         CALL sdf_read_srl_plain_mesh(sdf_handle, xb_global, yb_global, zb_global)
 
-        PRINT*, 'DONE READING GRID'
+        !PRINT*, 'DONE READING GRID'
 
       CASE(c_blocktype_plain_variable)
         IF (ndims /= c_ndims .OR. datatype /= sdf_num) CYCLE
@@ -183,7 +183,7 @@ CONTAINS
     CALL sdf_close(sdf_handle)
   END SUBROUTINE load_sdf
 
-  SUBROUTINE save_sdf(filename)
+  SUBROUTINE save_sdf(filename, output_variables, save_all)
     CHARACTER(LEN=*), INTENT(IN) :: filename
     CHARACTER(LEN=6+data_dir_max_length+n_zeros+c_id_length) :: full_filename
     CHARACTER(LEN=c_id_length) :: varname, units
@@ -193,6 +193,8 @@ CONTAINS
     LOGICAL :: convert = .FALSE.
     TYPE(sdf_file_handle) :: sdf_handle
     TYPE(sdf_block_type), POINTER :: b
+    character(c_id_length), INTENT(IN) :: output_variables(:)
+    logical, intent(in) :: save_all
 
     full_filename = TRIM(filename)
 
@@ -206,7 +208,6 @@ CONTAINS
     ! fix io date
     b => sdf_handle%current_block
     b%run%io_date = io_date
-    CALL write_run_info_meta(sdf_handle, 'run_info', 'Run_info')
 
     CALL sdf_write_cpu_split(sdf_handle, 'cpu_rank', 'CPUs/Original rank', &
         cell_nx_maxs, cell_ny_maxs, cell_nz_maxs)
@@ -220,7 +221,11 @@ CONTAINS
         xb_global, yb_global, zb_global, convert)
 
     do isimvar = 1, nsimvars
-      call save_var(variables(isimvar), sdf_handle)
+      if(save_all) then
+        call save_var(variables(isimvar), sdf_handle)
+      else if (any(output_variables==variables(isimvar)%block_id)) then
+        call save_var(variables(isimvar), sdf_handle)
+      end if
     end do
 
     CALL sdf_close(sdf_handle)
