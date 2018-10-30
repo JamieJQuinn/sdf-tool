@@ -40,7 +40,6 @@ MODULE sdf_io
   INTEGER :: geometry
   INTEGER :: nx_global, ny_global, nz_global
   INTEGER, DIMENSION(4) :: dims
-  INTEGER, DIMENSION(c_ndims) :: global_dims
   REAL(num), DIMENSION(2*c_ndims) :: extents
   REAL(num), DIMENSION(:), ALLOCATABLE :: xb_global, yb_global, zb_global
 
@@ -83,7 +82,7 @@ CONTAINS
     CHARACTER(LEN=*), INTENT(IN) :: filename
     CHARACTER(LEN=6+data_dir_max_length+n_zeros+c_id_length) :: full_filename
     INTEGER :: blocktype, datatype
-    INTEGER :: ierr, iblock, nblocks, ndims
+    INTEGER :: iblock, nblocks, ndims
     INTEGER :: isimvar = 1
     INTEGER :: comm = 0
 
@@ -188,8 +187,6 @@ CONTAINS
   SUBROUTINE save_sdf(filename, output_variables, save_all, slices)
     CHARACTER(LEN=*), INTENT(IN) :: filename
     CHARACTER(LEN=6+data_dir_max_length+n_zeros+c_id_length) :: full_filename
-    CHARACTER(LEN=c_id_length) :: varname, units
-    INTEGER, DIMENSION(c_ndims) :: global_dims, dims
     integer, dimension(6), intent(in) :: slices
     INTEGER :: comm = 0
     INTEGER :: isimvar = 1

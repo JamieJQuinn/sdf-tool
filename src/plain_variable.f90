@@ -12,7 +12,6 @@ module plain_variable
 
   type PlainVariable
     REAL(num), DIMENSION(:,:,:), ALLOCATABLE :: var_data
-    REAL(num), DIMENSION(:,:,:), ALLOCATABLE :: final_var_data
     INTEGER, DIMENSION(4) :: dims
     CHARACTER(LEN=c_id_length) :: varname, units, mesh_id, block_id
     INTEGER :: stagger, distribution, subarray

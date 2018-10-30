@@ -18,7 +18,7 @@ export MPIF90=mpif90
 export COMPILER=gfortran
 export MODE=debug
 MODULEFLAG = -I/usr/local/include -I$(OBJDIR) -J$(OBJDIR)
-FFLAGS = $(MODULEFLAG) -I$(SDF)/include -I$(FLAP)/static/mod -g -ffpe-trap=zero,invalid,overflow,underflow -fcheck=all
+FFLAGS = $(MODULEFLAG) -I$(SDF)/include -I$(FLAP)/static/mod -g
 LDFLAGS = $(FFLAGS) -L$(SDF)/lib -L$(FLAP)/static -lflap -lsdf
 
 FC=$(MPIF90)
@@ -47,13 +47,19 @@ $(OBJFILES): | $(OBJDIR)
 $(OBJDIR):
 	@mkdir -p $(OBJDIR)
 
+debug: FFLAGS+=-ffpe-trap=zero,invalid,overflow,underflow -fcheck=all -Wall
+debug: all
+
 clean:
 	rm -rf $(OBJDIR) $(FULLTARGET)
+
+cleanall: clean
+	$(MAKE) cleanall -C $(SDF)
 
 test:
 	test/test.sh
 
-.PHONY: test clean all
+.PHONY: all test clean cleanall debug
 
 main.o: main.f90 sdf_io.o mpi_routines.o shared_data.o
 sdf_io.o: sdf_io.f90 mpi_routines.o shared_data.o plain_variable.o
