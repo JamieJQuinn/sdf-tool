@@ -10,7 +10,7 @@ SDF is a file format developed at Warwick designed to contain simulation data. I
 
 ## Features
 
-[x] Reading/writing of SDF files
-[x] Removing whole variables
-[x] Taking 3D slices
-[] Calculating new variables
+- [x] Reading/writing of SDF files
+- [x] Removing whole variables
+- [x] Taking 3D slices
+- [ ] Calculating new variables
