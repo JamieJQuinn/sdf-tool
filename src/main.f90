@@ -29,7 +29,11 @@ program sdf_tool
 
   print *, "Welcome to sdf-tool!"
 
-  call cli%init(description = 'SDF Manipulation Tool')
+  call cli%init(progname = 'sdf-tool',
+                authors = 'Jamie Quinn',
+                license = 'GPLv3',
+                description = 'SDF Manipulation Tool',
+                examples = ['sdf-tool -i in.sdf -o out.sdf --output-variables Energy Vx --slice 1 5 1 5 100 200'])
   call cli%add(switch='--input', &
     switch_ab='-i',    &
     help='input file',   &
@@ -55,7 +59,7 @@ program sdf_tool
     nargs='*',def='',error=error)
   if (error/=0) stop
   call cli%add(switch='--slice',&
-    help='ix_min ix_max ...',required=.false.,act='store',&
+    help='ix_min ix_max iy_min iy_max iz_min iz_max INCLUSIVE',required=.false.,act='store',&
     nargs='6',def='0 0 0 0 0 0',error=error)
   if (error/=0) stop
 
