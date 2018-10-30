@@ -115,9 +115,11 @@ CONTAINS
     CALL sdf_read_blocklist(sdf_handle)
     CALL sdf_seek_start(sdf_handle)
 
+    ! Create incoming variable structure
     nsimvars = nblocks - 6
     allocate(variables(nsimvars))
 
+    ! Read in each block
     DO iblock = 1, nblocks
       CALL sdf_read_next_block_header(sdf_handle, block_id, name, blocktype, &
           ndims, datatype)
@@ -183,11 +185,12 @@ CONTAINS
     CALL sdf_close(sdf_handle)
   END SUBROUTINE load_sdf
 
-  SUBROUTINE save_sdf(filename, output_variables, save_all)
+  SUBROUTINE save_sdf(filename, output_variables, save_all, slices)
     CHARACTER(LEN=*), INTENT(IN) :: filename
     CHARACTER(LEN=6+data_dir_max_length+n_zeros+c_id_length) :: full_filename
     CHARACTER(LEN=c_id_length) :: varname, units
     INTEGER, DIMENSION(c_ndims) :: global_dims, dims
+    integer, dimension(6), intent(in) :: slices
     INTEGER :: comm = 0
     INTEGER :: isimvar = 1
     LOGICAL :: convert = .FALSE.
@@ -195,8 +198,16 @@ CONTAINS
     TYPE(sdf_block_type), POINTER :: b
     character(c_id_length), INTENT(IN) :: output_variables(:)
     logical, intent(in) :: save_all
+    integer :: nx, ny, nz
 
     full_filename = TRIM(filename)
+
+    if (slices(1) .ne. 0) then
+      nx = slices(2) - slices(1) + 1
+      ny = slices(4) - slices(3) + 1
+      nz = slices(6) - slices(5) + 1
+      CALL resize(slices)
+    end if
 
     CALL sdf_open(sdf_handle, full_filename, comm, c_sdf_write)
     CALL sdf_set_string_length(sdf_handle, c_max_string_length)
@@ -230,4 +241,68 @@ CONTAINS
 
     CALL sdf_close(sdf_handle)
   END SUBROUTINE save_sdf
+
+  subroutine resize(slices)
+    integer, dimension(6), intent(in) :: slices
+    INTEGER :: ix_min, ix_max, iy_min, iy_max, iz_min, iz_max
+    INTEGER :: nx, ny, nz
+    integer :: isimvar
+    REAL(num), DIMENSION(:), ALLOCATABLE :: new_xb_global, new_yb_global, new_zb_global
+
+    ix_min = slices(1)
+    ix_max = slices(2)
+    iy_min = slices(3)
+    iy_max = slices(4)
+    iz_min = slices(5)
+    iz_max = slices(6)
+
+    ! Resize MPI subarrays
+    nx = ix_max - ix_min + 1
+    ny = iy_max - iy_min + 1
+    nz = iz_max - iz_min + 1
+    CALL mpi_create_types(nx, ny, nz)
+
+    print *, "Resizing to (", nx, ny, nz, ")"
+
+    ! Resize grid
+    ix_max = ix_max + 1
+    iy_max = iy_max + 1
+    iz_max = iz_max + 1
+
+    nx = ix_max - ix_min + 1
+    ny = iy_max - iy_min + 1
+    nz = iz_max - iz_min + 1
+
+    ALLOCATE(new_xb_global(1:nx))
+    ALLOCATE(new_yb_global(1:ny))
+    ALLOCATE(new_zb_global(1:nz))
+
+    new_xb_global(:) = xb_global(ix_min:ix_max)
+    new_yb_global(:) = yb_global(iy_min:iy_max)
+    new_zb_global(:) = zb_global(iz_min:iz_max)
+
+    deallocate(xb_global)
+    deallocate(yb_global)
+    deallocate(zb_global)
+
+    ALLOCATE(xb_global(1:nx))
+    ALLOCATE(yb_global(1:ny))
+    ALLOCATE(zb_global(1:nz))
+
+    xb_global(:) = new_xb_global(:)
+    yb_global(:) = new_yb_global(:)
+    zb_global(:) = new_zb_global(:)
+
+    deallocate(new_xb_global)
+    deallocate(new_yb_global)
+    deallocate(new_zb_global)
+
+    ! resize variables
+    do isimvar = 1, nsimvars
+      call resize_var(variables(isimvar), slices)
+    end do
+
+    ! make sure we can't restart from this
+    restart_flag = .FALSE.
+  end subroutine resize
 END MODULE sdf_io

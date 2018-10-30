@@ -18,7 +18,7 @@ export MPIF90=mpif90
 export COMPILER=gfortran
 export MODE=debug
 MODULEFLAG = -I/usr/local/include -I$(OBJDIR) -J$(OBJDIR)
-FFLAGS = $(MODULEFLAG) -I$(SDF)/include -I$(FLAP)/static/mod -g
+FFLAGS = $(MODULEFLAG) -I$(SDF)/include -I$(FLAP)/static/mod -g -ffpe-trap=zero,invalid,overflow,underflow -fcheck=all
 LDFLAGS = $(FFLAGS) -L$(SDF)/lib -L$(FLAP)/static -lflap -lsdf
 
 FC=$(MPIF90)
