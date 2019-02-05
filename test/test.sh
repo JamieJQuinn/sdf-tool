@@ -44,13 +44,14 @@ function does_block_selection_work ()
     true
   else
     echo "Block Selection Failed!"
+    echo "number of blocks: $($SDFFILTER -v 0 test_out.sdf | awk '/nblocks_file/ {print $2}')" "should have been 16"
     false
   fi
 }
 
 cd $DIR
 rm test_out.sdf
-../bin/sdf-tool --input test.sdf --output test_out.sdf --output-all
+../bin/sdf-tool --input test.sdf --output test_out.sdf --output-all-variables
 
 do_headers_match
 do_serial_blocks_match

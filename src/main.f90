@@ -29,10 +29,10 @@ program sdf_tool
 
   print *, "Welcome to sdf-tool!"
 
-  call cli%init(progname = 'sdf-tool',
-                authors = 'Jamie Quinn',
-                license = 'GPLv3',
-                description = 'SDF Manipulation Tool',
+  call cli%init(progname = 'sdf-tool',&
+                authors = 'Jamie Quinn',&
+                license = 'GPLv3',&
+                description = 'SDF Manipulation Tool',&
                 examples = ['sdf-tool -i in.sdf -o out.sdf --output-variables Energy Vx --slice 1 5 1 5 100 200'])
   call cli%add(switch='--input', &
     switch_ab='-i',    &
@@ -48,10 +48,10 @@ program sdf_tool
     act='store',       &
     error=error)
   if (error/=0) stop
-  call cli%add(switch='--output-all', &
+  call cli%add(switch='--output-all-variables', &
     help='output all variables',   &
     act='store_true',       &
-    def='.true.',       &
+    def='.false.',       &
     error=error)
   if (error/=0) stop
   call cli%add(switch='--output-variables',&
@@ -67,7 +67,7 @@ program sdf_tool
   if (error/=0) stop
   call cli%get(switch='--output', val=output, error=error)
   if (error/=0) stop
-  call cli%get(switch='--output-all', val=output_all, error=error)
+  call cli%get(switch='--output-all-variables', val=output_all, error=error)
   if (error/=0) stop
   call cli%get_varying(switch='--output-variables', val=output_variables, error=error)
   if (error/=0) stop
