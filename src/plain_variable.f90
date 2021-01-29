@@ -8,7 +8,7 @@ module plain_variable
   implicit none
 
   private
-  public :: PlainVariable, load_var, save_var, resize_var
+  public :: PlainVariable, load_var, save_var, resize_var, reset_var
 
   type PlainVariable
     REAL(num), DIMENSION(:,:,:), ALLOCATABLE :: var_data
@@ -25,13 +25,17 @@ contains
     ! Grab variable info from header & block
     CALL sdf_read_block_header(sdf_handle, this%block_id, this%varname)
     CALL sdf_read_plain_variable_info(sdf_handle, this%dims, this%units, this%mesh_id, this%stagger)
-
     CALL set_subarray(this)
 
     ! Actually read in the data
     ALLOCATE(this%var_data(-1:this%dims(1)+2, -1:this%dims(2)+2, -1:this%dims(3)+2))
     CALL sdf_read_plain_variable(sdf_handle, this%var_data, this%distribution, this%subarray)
   end subroutine load_var
+
+  subroutine reset_var(this)
+    type(PlainVariable), intent(inout) :: this
+    deallocate(this%var_data)
+  end subroutine
 
   subroutine set_subarray(this)
     type(PlainVariable), intent(inout) :: this
@@ -102,9 +106,10 @@ contains
       enddo
     enddo
 
-    !do iy = 1, ny
-      !new_var_data(:,iy,:) = iy
+    !do iz = 1, nz
+      !new_var_data(:,:,iz) = iz
     !enddo
+
     call move_alloc(new_var_data, this%var_data)
     !deallocate(this%var_data)
     !allocate(this%var_data(-1:nx+2, -1:ny+2, -1:nz+2))

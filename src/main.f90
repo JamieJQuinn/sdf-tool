@@ -48,15 +48,15 @@ program sdf_tool
     act='store',       &
     error=error)
   if (error/=0) stop
-  call cli%add(switch='--output-all-variables', &
-    help='output all variables',   &
-    act='store_true',       &
-    def='.false.',       &
-    error=error)
-  if (error/=0) stop
+  !call cli%add(switch='--output-all-variables', &
+    !help='output all variables',   &
+    !act='store_true',       &
+    !def='.false.',       &
+    !error=error)
+  !if (error/=0) stop
   call cli%add(switch='--output-variables',&
     help='output select variables',required=.false.,act='store',&
-    nargs='*',def='',error=error)
+    nargs='*',def='all',error=error)
   if (error/=0) stop
   call cli%add(switch='--slice',&
     help='ix_min ix_max iy_min iy_max iz_min iz_max INCLUSIVE',required=.false.,act='store',&
@@ -67,17 +67,20 @@ program sdf_tool
   if (error/=0) stop
   call cli%get(switch='--output', val=output, error=error)
   if (error/=0) stop
-  call cli%get(switch='--output-all-variables', val=output_all, error=error)
+  !call cli%get(switch='--output-all-variables', val=output_all, error=error)
   if (error/=0) stop
   call cli%get_varying(switch='--output-variables', val=output_variables, error=error)
   if (error/=0) stop
   call cli%get(switch='--slice', val=slices, error=error)
   if (error/=0) stop
 
+  if(output_variables(1) == "all") then
+    output_all = .true.
+  endif
+
   CALL mpi_start
 
-  CALL load_sdf(input)
-  CALL save_sdf(output, output_variables, output_all, slices)
+  call process_sdf(input, output, output_variables, output_all, slices)
 
   CALL mpi_finish
 

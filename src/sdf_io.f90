@@ -12,7 +12,7 @@ MODULE sdf_io
   implicit none
 
   private
-  public :: load_sdf, save_sdf
+  public :: process_sdf
 
   !! Header vars
   INTEGER :: step, code_io_version, string_len
@@ -43,9 +43,7 @@ MODULE sdf_io
   REAL(num), DIMENSION(2*c_ndims) :: extents
   REAL(num), DIMENSION(:), ALLOCATABLE :: xb_global, yb_global, zb_global
 
-  !! Simulation Variables
-  integer :: nsimvars
-  type(PlainVariable), dimension(:), allocatable :: variables
+  type(PlainVariable) :: variable
 
 CONTAINS
   !! This function taken directly from Lare3d
@@ -73,32 +71,41 @@ CONTAINS
 
   END FUNCTION str_cmp
 
-  SUBROUTINE load_sdf(filename)
+  subroutine process_sdf(in_filename, out_filename, output_variables, save_all, slices)
 
     CHARACTER(LEN=c_id_length) :: block_id
     CHARACTER(LEN=c_id_length) :: mesh_id, str1
     CHARACTER(LEN=c_max_string_length) :: name
-    !CHARACTER(LEN=22) :: filename_fmt
-    CHARACTER(LEN=*), INTENT(IN) :: filename
-    CHARACTER(LEN=6+data_dir_max_length+n_zeros+c_id_length) :: full_filename
+    !CHARACTER(LEN=22) :: in_filename_fmt
+    CHARACTER(LEN=*), INTENT(IN) :: in_filename
+    CHARACTER(LEN=6+data_dir_max_length+n_zeros+c_id_length) :: full_in_filename
     INTEGER :: blocktype, datatype
     INTEGER :: iblock, nblocks, ndims
-    INTEGER :: isimvar = 1
     INTEGER :: comm = 0
+    TYPE(sdf_file_handle) :: in_sdf_handle
 
-    TYPE(sdf_file_handle) :: sdf_handle
+    CHARACTER(LEN=*), INTENT(IN) :: out_filename
+    CHARACTER(LEN=6+data_dir_max_length+n_zeros+c_id_length) :: full_out_filename
+    integer, dimension(6), intent(in) :: slices
+    LOGICAL :: convert = .FALSE.
+    TYPE(sdf_file_handle) :: out_sdf_handle
+    TYPE(sdf_block_type), POINTER :: b
+    character(c_id_length), INTENT(IN) :: output_variables(:)
+    logical, intent(in) :: save_all
+    integer :: nx, ny, nz
 
-    full_filename = TRIM(filename)
+    full_in_filename = TRIM(in_filename)
+    full_out_filename = TRIM(out_filename)
 
-    !PRINT*,'Attempting to read from file: ', full_filename
+    !PRINT*,'Attempting to read from file: ', full_in_filename
 
-    CALL sdf_open(sdf_handle, full_filename, comm, c_sdf_read)
+    CALL sdf_open(in_sdf_handle, full_in_filename, comm, c_sdf_read)
 
-    CALL sdf_read_header(sdf_handle, step, time, c_code_name, code_io_version, &
+    CALL sdf_read_header(in_sdf_handle, step, time, c_code_name, code_io_version, &
         string_len, restart_flag)
 
-    nblocks = sdf_read_nblocks(sdf_handle)
-    jobid = sdf_read_jobid(sdf_handle)
+    nblocks = sdf_read_nblocks(in_sdf_handle)
+    jobid = sdf_read_jobid(in_sdf_handle)
 
     !PRINT*, 'READING HEADER'
     !PRINT*, 'step', step
@@ -111,44 +118,65 @@ CONTAINS
     !PRINT*, 'jobid', jobid
     !PRINT*, 'DONE READING HEADER'
 
-    CALL sdf_read_blocklist(sdf_handle)
-    CALL sdf_seek_start(sdf_handle)
+    ! Open output sdf and print header info
+    CALL sdf_open(out_sdf_handle, full_out_filename, comm, c_sdf_write)
+    CALL sdf_set_string_length(out_sdf_handle, c_max_string_length)
+    CALL sdf_write_header(out_sdf_handle, TRIM(c_code_name), 1, step, time, &
+        restart_flag, jobid)
 
-    ! Create incoming variable structure
-    nsimvars = nblocks - 6
-    allocate(variables(nsimvars))
+    ! Start reading in blocks
+    CALL sdf_read_blocklist(in_sdf_handle)
+    CALL sdf_seek_start(in_sdf_handle)
 
     ! Read in each block
     DO iblock = 1, nblocks
-      CALL sdf_read_next_block_header(sdf_handle, block_id, name, blocktype, &
+      CALL sdf_read_next_block_header(in_sdf_handle, block_id, name, blocktype, &
           ndims, datatype)
+        !print *, block_id
       SELECT CASE(blocktype)
       CASE(c_blocktype_run_info)
-        CALL sdf_read_run_info(sdf_handle, c_version, c_revision, &
+        ! Read in
+        CALL sdf_read_run_info(in_sdf_handle, c_version, c_revision, &
           c_minor_rev, c_commit_id, sha1sum, c_compile_machine, &
           c_compile_flags, defines, c_compile_date, run_date, io_date)
+
+        ! Print out
+        CALL sdf_write_run_info(out_sdf_handle, c_version, c_revision, c_minor_rev, &
+            c_commit_id, '', c_compile_machine, c_compile_flags, 0_8, &
+            c_compile_date, run_date)
+        ! fix io date
+        b => out_sdf_handle%current_block
+        b%run%io_date = io_date
       CASE(c_blocktype_cpu_split)
-        CALL sdf_read_cpu_split_info(sdf_handle, cpu_dims, cpu_geometry)
+        CALL sdf_read_cpu_split_info(in_sdf_handle, cpu_dims, cpu_geometry)
         ALLOCATE(cell_nx_maxs(1:cpu_dims(1)+1))
         ALLOCATE(cell_ny_maxs(1:cpu_dims(2)+1))
         ALLOCATE(cell_nz_maxs(1:cpu_dims(3)+1))
-        CALL sdf_read_srl_cpu_split(sdf_handle, &
+        CALL sdf_read_srl_cpu_split(in_sdf_handle, &
           cell_nx_maxs, cell_ny_maxs, cell_nz_maxs)
+
+        CALL sdf_write_cpu_split(out_sdf_handle, 'cpu_rank', 'CPUs/Original rank', &
+            cell_nx_maxs, cell_ny_maxs, cell_nz_maxs)
 
       CASE(c_blocktype_constant)
         IF (str_cmp(block_id, 'dt')) THEN
-          CALL sdf_read_srl(sdf_handle, dt_from_restart)
+          CALL sdf_read_srl(in_sdf_handle, dt_from_restart)
+          CALL sdf_write_srl(out_sdf_handle, 'dt', 'Time increment', dt_from_restart)
         ELSE IF (str_cmp(block_id, 'time_prev')) THEN
-          CALL sdf_read_srl(sdf_handle, time_prev)
+          CALL sdf_read_srl(in_sdf_handle, time_prev)
+          CALL sdf_write_srl(out_sdf_handle, 'time_prev', 'Last dump time requested', &
+              time_prev)
         ELSE IF (str_cmp(block_id, 'visc_heating')) THEN
-          CALL sdf_read_srl(sdf_handle, total_visc_heating)
+          CALL sdf_read_srl(in_sdf_handle, total_visc_heating)
+          CALL sdf_write_srl(out_sdf_handle, 'visc_heating', 'Viscous heating total', &
+              total_visc_heating)
         END IF
 
       CASE(c_blocktype_plain_mesh)
         IF (ndims /= c_ndims .OR. datatype /= sdf_num &
             .OR. .NOT.str_cmp(block_id, 'grid')) CYCLE
 
-        CALL sdf_read_plain_mesh_info(sdf_handle, geometry, dims, extents)
+        CALL sdf_read_plain_mesh_info(in_sdf_handle, geometry, dims, extents)
 
         nx_global = dims(1) - 1
         ny_global = dims(2) - 1
@@ -164,86 +192,50 @@ CONTAINS
         ALLOCATE(yb_global(1:dims(2)))
         ALLOCATE(zb_global(1:dims(3)))
 
-        CALL sdf_read_srl_plain_mesh(sdf_handle, xb_global, yb_global, zb_global)
+        CALL sdf_read_srl_plain_mesh(in_sdf_handle, xb_global, yb_global, zb_global)
 
         !PRINT*, 'DONE READING GRID'
+
+        if (slices(1) .ne. 0) then
+          nx = slices(2) - slices(1) + 1
+          ny = slices(4) - slices(3) + 1
+          nz = slices(6) - slices(5) + 1
+          CALL resize(slices)
+        end if
+
+        CALL sdf_write_srl_plain_mesh(out_sdf_handle, 'grid', 'Grid/Grid', &
+            xb_global, yb_global, zb_global, convert)
 
       CASE(c_blocktype_plain_variable)
         IF (ndims /= c_ndims .OR. datatype /= sdf_num) CYCLE
 
-        CALL sdf_read_plain_variable_info(sdf_handle, dims, str1, mesh_id)
+        CALL sdf_read_plain_variable_info(in_sdf_handle, dims, str1, mesh_id)
 
         IF (.NOT.str_cmp(mesh_id, 'grid')) CYCLE
 
-        call load_var(variables(isimvar), sdf_handle)
-        isimvar = isimvar + 1
+        if (any(output_variables==block_id) .or. save_all) then
+          CALL mpi_create_types(nx_global, ny_global, nz_global)
+          call load_var(variable, in_sdf_handle)
+          if (slices(1) .ne. 0) then
+            CALL mpi_create_types(nx, ny, nz)
+            call resize_var(variable, slices)
+          end if
+          call save_var(variable, out_sdf_handle)
+          call reset_var(variable)
+        end if
 
       END SELECT
     END DO
 
-    CALL sdf_close(sdf_handle)
-  END SUBROUTINE load_sdf
+    CALL sdf_close(in_sdf_handle)
+    CALL sdf_close(out_sdf_handle)
 
-  SUBROUTINE save_sdf(filename, output_variables, save_all, slices)
-    CHARACTER(LEN=*), INTENT(IN) :: filename
-    CHARACTER(LEN=6+data_dir_max_length+n_zeros+c_id_length) :: full_filename
-    integer, dimension(6), intent(in) :: slices
-    INTEGER :: comm = 0
-    INTEGER :: isimvar = 1
-    LOGICAL :: convert = .FALSE.
-    TYPE(sdf_file_handle) :: sdf_handle
-    TYPE(sdf_block_type), POINTER :: b
-    character(c_id_length), INTENT(IN) :: output_variables(:)
-    logical, intent(in) :: save_all
-    integer :: nx, ny, nz
-
-    full_filename = TRIM(filename)
-
-    if (slices(1) .ne. 0) then
-      nx = slices(2) - slices(1) + 1
-      ny = slices(4) - slices(3) + 1
-      nz = slices(6) - slices(5) + 1
-      CALL resize(slices)
-    end if
-
-    CALL sdf_open(sdf_handle, full_filename, comm, c_sdf_write)
-    CALL sdf_set_string_length(sdf_handle, c_max_string_length)
-    CALL sdf_write_header(sdf_handle, TRIM(c_code_name), 1, step, time, &
-        restart_flag, jobid)
-    CALL sdf_write_run_info(sdf_handle, c_version, c_revision, c_minor_rev, &
-        c_commit_id, '', c_compile_machine, c_compile_flags, 0_8, &
-        c_compile_date, run_date)
-    ! fix io date
-    b => sdf_handle%current_block
-    b%run%io_date = io_date
-
-    CALL sdf_write_cpu_split(sdf_handle, 'cpu_rank', 'CPUs/Original rank', &
-        cell_nx_maxs, cell_ny_maxs, cell_nz_maxs)
-    CALL sdf_write_srl(sdf_handle, 'dt', 'Time increment', dt_from_restart)
-    CALL sdf_write_srl(sdf_handle, 'time_prev', 'Last dump time requested', &
-        time_prev)
-    CALL sdf_write_srl(sdf_handle, 'visc_heating', 'Viscous heating total', &
-        total_visc_heating)
-
-    CALL sdf_write_srl_plain_mesh(sdf_handle, 'grid', 'Grid/Grid', &
-        xb_global, yb_global, zb_global, convert)
-
-    do isimvar = 1, nsimvars
-      if(save_all) then
-        call save_var(variables(isimvar), sdf_handle)
-      else if (any(output_variables==variables(isimvar)%block_id)) then
-        call save_var(variables(isimvar), sdf_handle)
-      end if
-    end do
-
-    CALL sdf_close(sdf_handle)
-  END SUBROUTINE save_sdf
+  end subroutine
 
   subroutine resize(slices)
     integer, dimension(6), intent(in) :: slices
     INTEGER :: ix_min, ix_max, iy_min, iy_max, iz_min, iz_max
     INTEGER :: nx, ny, nz
-    integer :: isimvar
     REAL(num), DIMENSION(:), ALLOCATABLE :: new_xb_global, new_yb_global, new_zb_global
 
     ix_min = slices(1)
@@ -293,11 +285,6 @@ CONTAINS
     deallocate(new_xb_global)
     deallocate(new_yb_global)
     deallocate(new_zb_global)
-
-    ! resize variables
-    do isimvar = 1, nsimvars
-      call resize_var(variables(isimvar), slices)
-    end do
 
     ! make sure we can't restart from this
     restart_flag = .FALSE.

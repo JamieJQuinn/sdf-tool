@@ -49,16 +49,28 @@ function does_block_selection_work ()
   fi
 }
 
+function does_slicing_work ()
+{
+  diff <($SDFFILTER -v 8 -n -a 25:76,25:76,25:76 test.sdf) <($SDFFILTER -v 8 -n -c test_out.sdf)
+}
+
 cd $DIR
 rm test_out.sdf
-../bin/sdf-tool --input test.sdf --output test_out.sdf --output-all-variables
+../bin/sdf-tool --input test.sdf --output test_out.sdf
 
 do_headers_match
+echo "Headers copying"
 do_serial_blocks_match
+echo "Serial blocks copying"
 do_grids_match
+echo "Grid copying"
 do_variables_match
+echo "Variables copying"
 
 rm test_out.sdf
-../bin/sdf-tool --input test.sdf --output test_out.sdf --output-variables Energy Rho Vx Vy Vz Bx By Bz eta Isotropic_Viscous_Heating
+../bin/sdf-tool --input test.sdf --output test_out.sdf --slice 25 75 25 75 25 75 --output-variables Energy Rho Vx Vy Vz Bx By Bz eta Isotropic_Viscous_Heating
 
 does_block_selection_work
+echo "Selection of blocks working"
+does_slicing_work
+echo "Slicing working"
